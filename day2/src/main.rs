@@ -1,8 +1,9 @@
 use std::fs::read_to_string;
 use std::error::Error;
 
-use num_enum::{TryFromPrimitive, TryFromPrimitiveError};
+use num_enum::{TryFromPrimitive};
 
+use std::ops::Range;
 use std::convert::TryFrom;
 
 
@@ -19,66 +20,92 @@ enum Op {
 #[derive(Debug)]
 struct Intcode {
     code: Vec<usize>,
-    ptr: usize
+    iptr: usize
 }
 
 impl Intcode {
     fn new() -> Self {
         Self{
             code: read_to_string("src/input.txt").unwrap().split(',').map(|item| item.parse::<usize>().unwrap()).collect(),
-            ptr: 0
+            iptr: 0
         }
     }
 
-    fn restore_1202(self: &mut Self) {
-        self.code[1] = 12;
-        self.code[2] = 2;
+    fn load_input(self: &mut Self, param1: usize, param2: usize) {
+        self.code[1] = param1;
+        self.code[2] = param2;
     }
 
     fn get_args(self: &Self) -> (usize, usize) {
-        (self.code[self.code[self.ptr + 1]], self.code[self.code[self.ptr + 2]])
+        (self.code[self.code[self.iptr + 1]], self.code[self.code[self.iptr + 2]])
     }
 
     fn store_result(self: &mut Self, result: usize) {
-        let index = self.code[self.ptr + 3];
+        let index = self.code[self.iptr + 3];
         self.code[index] = result
     }
 
     fn finished(self: &Self) -> bool {
-        self.ptr >= self.code.len()
+        self.iptr >= self.code.len()
     }
 
-    fn op(self: &Self) -> Result<Op, TryFromPrimitiveError<Op>> {
-        Op::try_from(self.code[self.ptr])
+    fn op(self: &Self) -> Op {
+        Op::try_from(self.code[self.iptr]).unwrap()
     }
 
     fn next(self: &mut Self) {
-        self.ptr += 4
+        // TODO: needs to parametrise depending on current op
+        self.iptr += 4
+    }
+
+    fn run(self: &mut Self) -> usize {
+        while !self.finished() {
+            match self.op() {
+                Op::Add => {
+                    let (arg1, arg2) = self.get_args();
+                    self.store_result(arg1 + arg2);
+                },
+                Op::Mult => {
+                    let (arg1, arg2) = self.get_args();
+                    self.store_result(arg1 * arg2);
+                },
+                Op::Halt => break,
+            }
+
+            self.next()
+
+        }
+        self.code[0]
     }
 }
 
+fn part1() -> usize {
+    let mut program = Intcode::new();
+    program.load_input(12, 2);
+
+    program.run()
+}
+
+fn part2() -> usize {
+    const EXPECTED: usize = 19690720;
+    for noun in (Range{start: 0, end: 100}) {
+        for verb in (Range{start:0, end: 100}) {
+            let mut program = Intcode::new();
+            program.load_input(noun, verb);
+
+            let result = program.run();
+            if result == EXPECTED {
+                return 100 * noun + verb
+            }
+        }
+    }
+
+    panic!("Correct pair of noun/verb is not found for {}", EXPECTED);
+}
 
 
 fn main() -> MyResult<()> {
-    let mut program = Intcode::new();
-    program.restore_1202();
-
-    while !program.finished() {
-        match program.op()? {
-            Op::Add => {
-                let (arg1, arg2) = program.get_args();
-                program.store_result(arg1 + arg2);
-            },
-            Op::Mult => {
-                let (arg1, arg2) = program.get_args();
-                program.store_result(arg1 * arg2);
-            },
-            Op::Halt => break,
-        }
-
-        program.next()
-
-    }
-    println!("Result Part 1: {:?}", program.code[0]);
+    println!("Result Part 1: {:?}", part1());
+    println!("Result Part 2: {:?}", part2());
     Ok(())
 }
