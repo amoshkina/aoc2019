@@ -15,47 +15,59 @@ enum Op {
     Halt = 99
 }
 
-fn restore_1202(codes: &mut Vec<i32>) {
-    codes[1] = 12;
-    codes[2] = 2;
+#[derive(Debug)]
+struct Codes {
+    value: Vec<i32>,
+    current: usize
 }
 
-fn get_args(codes: &Vec<i32>, current: usize) -> (i32, i32) {
-    (codes[codes[current + 1 as usize] as usize], codes[codes[current + 2 as usize] as usize])
+impl Codes {
+    fn restore_1202(self: &mut Self) {
+        self.value[1] = 12;
+        self.value[2] = 2;
+    }
+
+    fn get_args(self: &Self) -> (i32, i32) {
+        (self.value[self.value[self.current + 1 as usize] as usize], self.value[self.value[self.current + 2 as usize] as usize])
+    }
+
+    fn store_result(self: &mut Self, result: i32) {
+        let index = self.value[self.current + 3 as usize] as usize;
+        self.value[index] = result
+    }
 }
 
-fn store_result(codes: &mut Vec<i32>, current: usize, result: i32) {
-    let index = codes[current + 3 as usize] as usize;
-    codes[index] = result
-}
+
 
 fn main() -> MyResult<()> {
-    let mut codes: Vec<i32> = read_to_string("src/input.txt")?.split(',').map(|item| item.parse::<i32>().unwrap()).collect();
+    let value: Vec<i32> = read_to_string("src/input.txt")?.split(',').map(|item| item.parse::<i32>().unwrap()).collect();
+    let mut codes: Codes = Codes{
+        value: value,
+        current: 0
+    };
     // restore_1202(&mut codes);
 
     println!("codes: {:?}", codes);
 
-    let mut op: Op = Op::Add;
-    let mut current: usize = 0;
     
-    while current < codes.len() {
-        println!("current for op: {:?}", current);
-        match Op::try_from(codes[current]) {
+    while codes.current < codes.value.len() {
+        println!("current for op: {:?}", codes.current);
+        match Op::try_from(codes.value[codes.current]) {
             Ok(Op::Add) => {
-                println!("current = {:?}", current);
-                let (arg1, arg2) = get_args(&codes, current);
-                store_result(&mut codes, current, arg1 + arg2);
+                println!("current = {:?}", codes.current);
+                let (arg1, arg2) = codes.get_args();
+                codes.store_result(arg1 + arg2);
             },
             Ok(Op::Mult) => {
-                println!("current = {:?}", current);
-                let (arg1, arg2) = get_args(&codes, current);
-                store_result(&mut codes, current, arg1 * arg2);
+                println!("current = {:?}", codes.current);
+                let (arg1, arg2) = codes.get_args();
+                codes.store_result(arg1 * arg2);
             },
             Ok(Op::Halt) => break,
-            Err(_) => println!("Result Part 1: {:?}", codes[0])
+            Err(_) => println!("Result Part 1: {:?}", codes.value[0])
         }
 
-        current += 4;
+        codes.current += 4;
 
     }
     println!("Finished without errors: {:?}", codes);
