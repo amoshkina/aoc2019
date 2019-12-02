@@ -36,11 +36,11 @@ impl Intcode {
     }
 
     fn get_args(self: &Self) -> (usize, usize) {
-        (self.code[self.code[self.ptr + 1usize]], self.code[self.code[self.ptr + 2usize]])
+        (self.code[self.code[self.ptr + 1]], self.code[self.code[self.ptr + 2]])
     }
 
     fn store_result(self: &mut Self, result: usize) {
-        let index = self.code[self.ptr + 3usize];
+        let index = self.code[self.ptr + 3];
         self.code[index] = result
     }
 
