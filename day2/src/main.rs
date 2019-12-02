@@ -2,6 +2,8 @@ use std::fs::read_to_string;
 use std::error::Error;
 
 use num_enum::TryFromPrimitive;
+// use num_enum::Err;
+
 use std::convert::TryFrom;
 
 
@@ -16,60 +18,68 @@ enum Op {
 }
 
 #[derive(Debug)]
-struct Codes {
-    value: Vec<i32>,
+struct Intcode {
+    code: Vec<i32>,
     current: usize
 }
 
-impl Codes {
+impl Intcode {
     fn restore_1202(self: &mut Self) {
-        self.value[1] = 12;
-        self.value[2] = 2;
+        self.code[1] = 12;
+        self.code[2] = 2;
     }
 
     fn get_args(self: &Self) -> (i32, i32) {
-        (self.value[self.value[self.current + 1 as usize] as usize], self.value[self.value[self.current + 2 as usize] as usize])
+        (self.code[self.code[self.current + 1 as usize] as usize], self.code[self.code[self.current + 2 as usize] as usize])
     }
 
     fn store_result(self: &mut Self, result: i32) {
-        let index = self.value[self.current + 3 as usize] as usize;
-        self.value[index] = result
+        let index = self.code[self.current + 3 as usize] as usize;
+        self.code[index] = result
+    }
+
+    fn finished(self: &Self) -> bool {
+        self.current >= self.code.len()
+    }
+
+    fn op(self: &Self) -> Result<Op, num_enum::TryFromPrimitiveError<Op>> {
+        Op::try_from(self.code[self.current])
+    }
+
+    fn next(self: &mut Self) {
+        self.current += 4
     }
 }
 
 
 
 fn main() -> MyResult<()> {
-    let value: Vec<i32> = read_to_string("src/input.txt")?.split(',').map(|item| item.parse::<i32>().unwrap()).collect();
-    let mut codes: Codes = Codes{
-        value: value,
+    let mut program: Intcode = Intcode{
+        code: read_to_string("src/input.txt")?.split(',').map(|item| item.parse::<i32>().unwrap()).collect(),
         current: 0
     };
-    // restore_1202(&mut codes);
+    // program.restore_1202(&mut program);
 
-    println!("codes: {:?}", codes);
+    println!("program: {:?}", program);
 
     
-    while codes.current < codes.value.len() {
-        println!("current for op: {:?}", codes.current);
-        match Op::try_from(codes.value[codes.current]) {
+    while !program.finished() {
+        match program.op() {
             Ok(Op::Add) => {
-                println!("current = {:?}", codes.current);
-                let (arg1, arg2) = codes.get_args();
-                codes.store_result(arg1 + arg2);
+                let (arg1, arg2) = program.get_args();
+                program.store_result(arg1 + arg2);
             },
             Ok(Op::Mult) => {
-                println!("current = {:?}", codes.current);
-                let (arg1, arg2) = codes.get_args();
-                codes.store_result(arg1 * arg2);
+                let (arg1, arg2) = program.get_args();
+                program.store_result(arg1 * arg2);
             },
             Ok(Op::Halt) => break,
-            Err(_) => println!("Result Part 1: {:?}", codes.value[0])
+            Err(_) => println!("Result Part 1: {:?}", program.code[0])
         }
 
-        codes.current += 4;
+        program.next()
 
     }
-    println!("Finished without errors: {:?}", codes);
+    println!("Finished without errors: {:?}", program);
     Ok(())
 }
