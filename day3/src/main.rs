@@ -77,8 +77,8 @@ fn intersections(wire1: &T, wire2: &T) -> HashMap<(i32, i32), i32> {
     wire1.intersection(&wire2).map(|&&coord| (coord, 0)).collect()
 }
 
-fn part1(crosses: &HashMap<(i32, i32), i32>) -> i32 {
-    crosses.iter().map(|((x, y), _)| x.abs() + y.abs()).min().unwrap()
+fn part1(crosses: &HashMap<(i32, i32), i32>) -> MyResult<i32> {
+    crosses.iter().map(|((x, y), _)| x.abs() + y.abs()).min().ok_or(Box::from("error"))
 }
 
 fn part2(wires: &Vec<T>, crosses: &mut HashMap<(i32, i32), i32>) -> i32 {
@@ -100,7 +100,7 @@ fn main() -> MyResult<()> {
     let wires = construct_wires().unwrap();
     let mut crosses = intersections(&wires[0], &wires[1]);
 
-    println!("Part 1 Result: {:?}", part1(&crosses));
+    println!("Part 1 Result: {:?}", part1(&crosses)?);
     println!("Part 2 Result: {:?}", part2(&wires, &mut crosses));
 
     Ok(())
