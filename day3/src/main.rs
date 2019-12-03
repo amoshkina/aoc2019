@@ -19,18 +19,11 @@ enum Step {
     D(i32)
 }
 
-#[derive(Debug, Hash, Eq, Copy, Clone)]
+#[derive(Debug, Hash, Eq, PartialEq, Copy, Clone)]
 struct Point {
     x: i32,
     y: i32
 }
-
-impl PartialEq for Point {
-    fn eq(&self, other: &Self) -> bool {
-        self.x == other.x && self.y == other.y
-    }
-}
-
 
 fn construct_wires() -> MyResult<Vec<Vec<(Point)>>> {
     let file = File::open("src/input.txt")?;
