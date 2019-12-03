@@ -34,7 +34,7 @@ fn construct_wires() -> MyResult<Vec<Vec<(Point)>>> {
     for line in reader.lines() {
         let mut wire: Vec<Point> = vec![];
         let (mut x, mut y): (i32, i32) = (0, 0);
-        for value in line?.split(',').collect::<Vec<&str>>() {
+        for value in line?.split(',') {
             let step: Step = serde_scan::from_str(&format!("{} {}", &value[0..1], &value[1..]))?;
 
             let xs: Vec<i32>;
@@ -78,7 +78,7 @@ fn construct_wires() -> MyResult<Vec<Vec<(Point)>>> {
 fn intersections(wire1: &Vec<Point>, wire2: &Vec<Point>) -> HashMap<Point, i32> {
     let wire1: HashSet<&Point> = HashSet::from_iter(wire1);
     let wire2: HashSet<&Point> = HashSet::from_iter(wire2);
-    wire1.intersection(&wire2).map(|&&coord| (coord, 0)).collect()
+    wire1.intersection(&wire2).map(|&&point| (point, 0)).collect()
 }
 
 fn part1(crosses: &HashMap<Point, i32>) -> MyResult<i32> {
