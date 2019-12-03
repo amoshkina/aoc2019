@@ -10,7 +10,6 @@ use std::iter::Iterator;
 
 
 type MyResult<T> = Result<T, Box<dyn Error>>;
-// type T = Vec<(i32, i32)>;
 
 #[derive(Debug, Deserialize)]
 enum Step {
@@ -20,15 +19,27 @@ enum Step {
     D(i32)
 }
 
+#[derive(Debug, Hash, Eq, Copy, Clone)]
+struct Point {
+    x: i32,
+    y: i32
+}
 
-fn construct_wires() -> MyResult<Vec<Vec<(i32, i32)>>> {
+impl PartialEq for Point {
+    fn eq(&self, other: &Self) -> bool {
+        self.x == other.x && self.y == other.y
+    }
+}
+
+
+fn construct_wires() -> MyResult<Vec<Vec<(Point)>>> {
     let file = File::open("src/input.txt")?;
     let reader = BufReader::new(file);
 
-    let mut wires: Vec<Vec<(i32, i32)>> = vec![];
+    let mut wires: Vec<Vec<Point>> = vec![];
 
     for line in reader.lines() {
-        let mut wire: Vec<(i32, i32)> = vec![];
+        let mut wire: Vec<Point> = vec![];
         let (mut x, mut y): (i32, i32) = (0, 0);
         for value in line?.split(',').collect::<Vec<&str>>() {
             let step: Step = serde_scan::from_str(&format!("{} {}", &value[0..1], &value[1..]))?;
@@ -61,7 +72,7 @@ fn construct_wires() -> MyResult<Vec<Vec<(i32, i32)>>> {
             }
             for (&x, &y) in xs.iter().zip(&ys) {
                 if (x, y) != (0, 0) {
-                    wire.push((x, y))
+                    wire.push(Point{x, y})
                 }
             }
             
@@ -71,17 +82,17 @@ fn construct_wires() -> MyResult<Vec<Vec<(i32, i32)>>> {
     Ok(wires)
 }
 
-fn intersections(wire1: &Vec<(i32, i32)>, wire2: &Vec<(i32, i32)>) -> HashMap<(i32, i32), i32> {
-    let wire1: HashSet<&(i32, i32)> = HashSet::from_iter(wire1);
-    let wire2: HashSet<&(i32, i32)> = HashSet::from_iter(wire2);
+fn intersections(wire1: &Vec<Point>, wire2: &Vec<Point>) -> HashMap<Point, i32> {
+    let wire1: HashSet<&Point> = HashSet::from_iter(wire1);
+    let wire2: HashSet<&Point> = HashSet::from_iter(wire2);
     wire1.intersection(&wire2).map(|&&coord| (coord, 0)).collect()
 }
 
-fn part1(crosses: &HashMap<(i32, i32), i32>) -> MyResult<i32> {
-    crosses.keys().map(|(x, y)| x.abs() + y.abs()).min().ok_or(Box::from("error"))
+fn part1(crosses: &HashMap<Point, i32>) -> MyResult<i32> {
+    crosses.keys().map(|point| point.x.abs() + point.y.abs()).min().ok_or(Box::from("error"))
 }
 
-fn part2(wires: &Vec<Vec<(i32, i32)>>, crosses: &mut HashMap<(i32, i32), i32>) -> i32 {
+fn part2<'a>(wires: &Vec<Vec<Point>>, crosses: &'a mut HashMap<Point, i32>) -> MyResult<&'a i32> {
     for wire in wires {
         let mut counter: i32 = 0;
         for point in wire {
@@ -92,7 +103,7 @@ fn part2(wires: &Vec<Vec<(i32, i32)>>, crosses: &mut HashMap<(i32, i32), i32>) -
         }
     }
 
-    *crosses.values().min().unwrap()
+    crosses.values().min().ok_or(Box::from("error"))
 }
 
 
@@ -101,7 +112,7 @@ fn main() -> MyResult<()> {
     let mut crosses = intersections(&wires[0], &wires[1]);
 
     println!("Part 1 Result: {:?}", part1(&crosses)?);
-    println!("Part 2 Result: {:?}", part2(&wires, &mut crosses));
+    println!("Part 2 Result: {:?}", part2(&wires, &mut crosses)?);
 
     Ok(())
 }
