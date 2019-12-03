@@ -101,7 +101,7 @@ fn part2(wires: Vec<Vec<Point>>, crosses: &mut HashMap<Point, i32>) -> MyResult<
 
 
 fn main() -> MyResult<()> {
-    let wires = construct_wires().unwrap();
+    let wires = construct_wires()?;
     let mut crosses = intersections(&wires[0], &wires[1]);
 
     println!("Part 1 Result: {:?}", part1(&crosses)?);
