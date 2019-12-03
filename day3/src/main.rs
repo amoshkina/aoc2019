@@ -10,7 +10,7 @@ use std::iter::Iterator;
 
 
 type MyResult<T> = Result<T, Box<dyn Error>>;
-type T = Vec<(i32, i32)>;
+// type T = Vec<(i32, i32)>;
 
 #[derive(Debug, Deserialize)]
 enum Step {
@@ -21,14 +21,14 @@ enum Step {
 }
 
 
-fn construct_wires() -> MyResult<Vec<T>> {
+fn construct_wires() -> MyResult<Vec<Vec<(i32, i32)>>> {
     let file = File::open("src/input.txt")?;
     let reader = BufReader::new(file);
 
-    let mut wires: Vec<T> = vec![];
+    let mut wires: Vec<Vec<(i32, i32)>> = vec![];
 
     for line in reader.lines() {
-        let mut wire: T = T::new();
+        let mut wire: Vec<(i32, i32)> = vec![];
         let (mut x, mut y): (i32, i32) = (0, 0);
         for value in line?.split(',').collect::<Vec<&str>>() {
             let step: Step = serde_scan::from_str(&format!("{} {}", &value[0..1], &value[1..]))?;
@@ -71,17 +71,17 @@ fn construct_wires() -> MyResult<Vec<T>> {
     Ok(wires)
 }
 
-fn intersections(wire1: &T, wire2: &T) -> HashMap<(i32, i32), i32> {
+fn intersections(wire1: &Vec<(i32, i32)>, wire2: &Vec<(i32, i32)>) -> HashMap<(i32, i32), i32> {
     let wire1: HashSet<&(i32, i32)> = HashSet::from_iter(wire1);
     let wire2: HashSet<&(i32, i32)> = HashSet::from_iter(wire2);
     wire1.intersection(&wire2).map(|&&coord| (coord, 0)).collect()
 }
 
 fn part1(crosses: &HashMap<(i32, i32), i32>) -> MyResult<i32> {
-    crosses.iter().map(|((x, y), _)| x.abs() + y.abs()).min().ok_or(Box::from("error"))
+    crosses.keys().map(|(x, y)| x.abs() + y.abs()).min().ok_or(Box::from("error"))
 }
 
-fn part2(wires: &Vec<T>, crosses: &mut HashMap<(i32, i32), i32>) -> i32 {
+fn part2(wires: &Vec<Vec<(i32, i32)>>, crosses: &mut HashMap<(i32, i32), i32>) -> i32 {
     for wire in wires {
         let mut counter: i32 = 0;
         for point in wire {
@@ -92,7 +92,7 @@ fn part2(wires: &Vec<T>, crosses: &mut HashMap<(i32, i32), i32>) -> i32 {
         }
     }
 
-    *crosses.into_iter().map(|(_, count)| count).min().unwrap()
+    *crosses.values().min().unwrap()
 }
 
 
