@@ -44,7 +44,7 @@ fn construct_wires() -> MyResult<Vec<T>> {
                     x += len;
                 },
                 Step::L(len) => {
-                    for i in x-len..x {
+                    for i in (x-len+1..x+1).rev() {
                         if (i, y) != (0, 0) {
                             wire.push((i, y));
                         }
@@ -60,7 +60,7 @@ fn construct_wires() -> MyResult<Vec<T>> {
                     y += len;
                 },
                 Step::D(len) => {
-                    for j in y-len..y {
+                    for j in (y-len+1..y+1).rev() {
                         if (x, j) != (0, 0) {
                             wire.push((x, j));
                         }
