@@ -6,6 +6,7 @@ use std::io::{prelude::*, BufReader};
 use std::error::Error;
 use std::collections::{HashSet, HashMap};
 use std::iter::FromIterator;
+use std::iter::Iterator;
 
 
 type MyResult<T> = Result<T, Box<dyn Error>>;
@@ -32,44 +33,38 @@ fn construct_wires() -> MyResult<Vec<T>> {
         for value in line?.split(',').collect::<Vec<&str>>() {
             let step: Step = serde_scan::from_str(&format!("{} {}", &value[0..1], &value[1..]))?;
 
-            // TODO: needs to shorten
+            let xs: Vec<i32>;
+            let ys: Vec<i32>;
+
             match step {
                 Step::R(len) => {
-                    for i in x..x+len {
-                        if (i, y) != (0, 0) {
-                            wire.push((i, y));
-                        }
-                        
-                    }
+                    xs = (x..x+len).collect();
+                    ys = vec![y; len as usize];
                     x += len;
                 },
                 Step::L(len) => {
-                    for i in (x-len+1..x+1).rev() {
-                        if (i, y) != (0, 0) {
-                            wire.push((i, y));
-                        }
-                    }
+                    xs = (x-len+1..x+1).rev().collect();
+                    ys = vec![y; len as usize];
                     x -= len;
                 },
                 Step::U(len) => {
-                    for j in y..y+len {
-                        if (x, j) != (0, 0) {
-                            wire.push((x, j));
-                        }
-                    }
+                    xs = vec![x; len as usize];
+                    ys = (y..y+len).collect();
                     y += len;
                 },
                 Step::D(len) => {
-                    for j in (y-len+1..y+1).rev() {
-                        if (x, j) != (0, 0) {
-                            wire.push((x, j));
-                        }
-                        
-                    }
+                    xs = vec![x; len as usize];
+                    ys = (y-len+1..y+1).rev().collect();
                     y -= len;
                 }
 
             }
+            for (&x, &y) in xs.iter().zip(&ys) {
+                if (x, y) != (0, 0) {
+                    wire.push((x, y))
+                }
+            }
+            
         }
         wires.push(wire);
     }
