@@ -85,12 +85,12 @@ fn part1(crosses: &HashMap<Point, i32>) -> MyResult<i32> {
     crosses.keys().map(|point| point.x.abs() + point.y.abs()).min().ok_or(Box::from("error"))
 }
 
-fn part2<'a>(wires: &Vec<Vec<Point>>, crosses: &'a mut HashMap<Point, i32>) -> MyResult<&'a i32> {
+fn part2(wires: Vec<Vec<Point>>, crosses: &mut HashMap<Point, i32>) -> MyResult<&i32> {
     for wire in wires {
         let mut counter: i32 = 0;
         for point in wire {
             counter += 1;
-            if let Some(count) = crosses.get_mut(point) {
+            if let Some(count) = crosses.get_mut(&point) {
                 *count += counter;
             }
         }
@@ -105,7 +105,7 @@ fn main() -> MyResult<()> {
     let mut crosses = intersections(&wires[0], &wires[1]);
 
     println!("Part 1 Result: {:?}", part1(&crosses)?);
-    println!("Part 2 Result: {:?}", part2(&wires, &mut crosses)?);
+    println!("Part 2 Result: {:?}", part2(wires, &mut crosses)?);
 
     Ok(())
 }
