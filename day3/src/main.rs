@@ -65,6 +65,7 @@ fn main() -> MyResult<()> {
 
     let intersections: HashSet<_> = wires[0].intersection(&wires[1]).collect();
 
+    // TODO: fix &&& hell
     if let Some(nearest) = intersections.iter().filter(|&&&tuple| tuple != (0, 0)).map(|tuple| tuple.0.abs() + tuple.1.abs()).min() {
         println!("Part 1 Result: {:?}", nearest);
     }
