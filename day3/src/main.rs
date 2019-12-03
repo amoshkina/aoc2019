@@ -78,7 +78,7 @@ fn intersections(wire1: &T, wire2: &T) -> HashMap<(i32, i32), i32> {
 }
 
 fn part1(crosses: &HashMap<(i32, i32), i32>) -> i32 {
-    crosses.iter().map(|(coord, _)| coord.0.abs() + coord.1.abs()).min().unwrap()
+    crosses.iter().map(|((x, y), _)| x.abs() + y.abs()).min().unwrap()
 }
 
 fn part2(wires: &Vec<T>, crosses: &mut HashMap<(i32, i32), i32>) -> i32 {
@@ -92,7 +92,7 @@ fn part2(wires: &Vec<T>, crosses: &mut HashMap<(i32, i32), i32>) -> i32 {
         }
     }
 
-    *crosses.into_iter().min_by_key(|value| value.1.clone()).unwrap().1
+    *crosses.into_iter().map(|(_, count)| count).min().unwrap()
 }
 
 
