@@ -1,20 +1,16 @@
 use std::fs::read_to_string;
 use std::error::Error;
-use std::convert::TryFrom;
-
-use num_enum::{TryFromPrimitive};
-
 
 type MyResult<T> = Result<T, Box<dyn Error>>;
 
 #[repr(usize)]
-#[derive(Debug, Eq, PartialEq, TryFromPrimitive)]
+#[derive(Debug, Eq, PartialEq)]
 enum Op {
-    Add = 1,
-    Mult = 2,
-    Input = 3,
-    Output = 4,
-    Halt = 99
+    Add(usize, usize, usize), // 1
+    Mult(usize, usize, usize), // 2
+    Input(usize), // 3
+    Output(usize), // 4
+    Halt, // 99
 }
 
 #[derive(Debug)]
@@ -26,10 +22,50 @@ struct Intcode {
 
 impl Intcode {
     fn new(data: &str) -> Self {
+        // FIXME: unwrap
         let code = data.split(',').map(|item| item.parse::<usize>().unwrap()).collect();
         let iptr: usize = 0;
         let op = Self::parse_op(&code, iptr);
         Self{code, iptr, op}
+    }
+
+    fn parse_op(code: &Vec<usize>, iptr: usize) -> Op {
+        let instruction = code[iptr] % 100; 
+        let mut acc = code[iptr] / 100;
+        let mut modes: Vec<usize> = vec![];
+        let num: usize = match instruction {
+            1 | 2 => 3,
+            3 | 4 => 1,
+            99    => 0,
+            invalid => panic!("Invalid instruction code {:?}", invalid),
+        };
+
+        for _ in 0..num {
+            modes.push(acc % 100);
+            acc = acc / 100;
+        }
+        modes.reverse();
+
+        let mut params: Vec<usize> = vec![];
+        if num > 1 {
+            for (&value, mode) in code[iptr+1..iptr+num].into_iter().zip(&modes) {
+                let param: usize = match mode {
+                    0 => code[value],
+                    1 => value,
+                    invalid => panic!("Invalid mode identifier: {:?}", invalid)
+                };
+                params.push(param);
+            }
+        }
+
+        match instruction {
+            1 => Op::Add(params[0], params[1], code[iptr+num]),
+            2 => Op::Mult(params[0], params[1], code[iptr+num]),
+            3 => Op::Input(code[iptr+num]),
+            4 => Op::Output(code[iptr+num]),
+            99 => Op::Halt,
+            invalid => panic!("Invalid instruction code {:?}", invalid),
+        }
     }
 
     fn load_input(self: &mut Self, param1: usize, param2: usize) {
@@ -37,28 +73,18 @@ impl Intcode {
         self.code[2] = param2;
     }
 
-    // TODO: get_args and store_result are no longer convenient
-    fn get_args(self: &Self) -> (usize, usize) {
-        (self.code[self.code[self.iptr + 1]], self.code[self.code[self.iptr + 2]])
-    }
-
-    fn store_result(self: &mut Self, result: usize) {
-        let index = self.code[self.iptr + 3];
-        self.code[index] = result
+    fn save(self: &mut Self, result: usize, addr: usize) {
+        self.code[addr] = result;
     }
 
     fn finished(self: &Self) -> bool {
         self.iptr >= self.code.len()
     }
 
-    fn parse_op(code: &Vec<usize>, iptr: usize) -> Op {
-        Op::try_from(code[iptr]).unwrap()
-    }
-
     fn params_num(self: &Self) -> usize {
         match self.op {
-            Op::Add | Op::Mult => 3,
-            Op::Input | Op::Output => 1,
+            Op::Add(_, _ ,_) | Op::Mult(_, _, _) => 3,
+            Op::Input(_) | Op::Output(_) => 1,
             Op::Halt => 0
         }    
     }
@@ -72,17 +98,11 @@ impl Intcode {
     fn run(self: &mut Self) -> usize {
         while !self.finished() {
             match self.op {
-                Op::Add => {
-                    let (arg1, arg2) = self.get_args();
-                    self.store_result(arg1 + arg2);
-                },
-                Op::Mult => {
-                    let (arg1, arg2) = self.get_args();
-                    self.store_result(arg1 * arg2);
-                },
+                Op::Add(value1, value2, addr) => self.save(value1 + value2, addr),
+                Op::Mult(value1, value2, addr) => self.save(value1 * value2, addr),
+                Op::Input(_addr) => unimplemented!(),
+                Op::Output(_addr) => unimplemented!(),
                 Op::Halt => break,
-                Op::Input => unimplemented!(),
-                Op:: Output => unimplemented!()
             }
 
             self.next()
@@ -121,5 +141,6 @@ fn main() -> MyResult<()> {
     let data: String = read_to_string("src/input.txt")?;
     println!("Result Part 1: {:?}", part1(&data));
     println!("Result Part 2: {:?}", part2(&data));
+    
     Ok(())
 }
