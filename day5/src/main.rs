@@ -167,16 +167,12 @@ impl Intcode {
     }
 }
 
-fn part1(data: &str) -> i32 {
-    let mut program = Intcode::new(data);
-
-    program.run()
-}
-
 
 fn main() -> MyResult<()> {
     let data: String = read_to_string("src/input.txt")?;
-    part1(&data);
+    let mut program = Intcode::new(&data);
+
+    program.run();
     
     Ok(())
 }
