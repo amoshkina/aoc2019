@@ -95,23 +95,24 @@ impl Intcode {
         }    
     }
 
-    fn next(self: &mut Self) {
-        // adding 1 as op itself takes one place in code along with params
-        self.iptr += self.params_num() + 1;
+    fn next(self: &mut Self, addr: Option<usize>) {
+        let addr = match addr {
+            Some(value) => value,
+            None => self.iptr + self.params_num() + 1, // adding 1 as op itself takes one place in code along with params
+        };
+
+        self.iptr = addr;
         self.op = Self::parse_op(&self.code, self.iptr);
     }
 
     fn run(self: &mut Self) -> i32 {
         while !self.finished() {
+            let mut next_addr: Option<usize> = None;
             match self.op {
-                Op::Add(value1, value2, addr) => {
-                    self.save(value1 + value2, addr);
-                    self.next();
-                },
-                Op::Mult(value1, value2, addr) => {
-                    self.save(value1 * value2, addr);
-                    self.next();
-                },
+                Op::Add(value1, value2, addr) => self.save(value1 + value2, addr),
+
+                Op::Mult(value1, value2, addr) => self.save(value1 * value2, addr),
+
                 Op::Input(addr) => {
                     let mut input = String::new();
                     println!("");
@@ -121,46 +122,28 @@ impl Intcode {
 
                     let value: i32 = input.trim().parse().unwrap();
                     self.save(value, addr);
-                    self.next();
                 },
-                Op::Output(value) => {
-                    println!("> {:?}", value);
-                    self.next();
-                },
-                Op::JumpTrue(value, addr) => {
-                    if value != 0 {
-                        self.iptr = addr;
-                        self.op = Self::parse_op(&self.code, self.iptr);
-                    } else {
-                        self.next();
-                    }
-                },
-                Op::JumpFalse(value, addr) => {
-                    if value == 0 {
-                        self.iptr = addr;
-                        self.op = Self::parse_op(&self.code, self.iptr);
-                    } else {
-                        self.next()
-                    }
-                },
+
+                Op::Output(value) => println!("> {:?}", value),
+
+                Op::JumpTrue(value, addr) => if value != 0 { next_addr = Some(addr) }, 
+
+                Op::JumpFalse(value, addr) => if value == 0 { next_addr = Some(addr) }, 
+
                 Op::Less(value1, value2, addr) => {
-                    if value1 < value2 {
-                        self.code[addr] = 1;
-                    } else {
-                        self.code[addr] = 0;
-                    }
-                    self.next();
+                    let result = if value1 < value2 { 1 } else { 0 };
+                    self.code[addr] = result;
                 },
+
                 Op::Equals(value1, value2, addr) => {
-                    if value1 == value2 {
-                        self.code[addr] = 1;
-                    } else {
-                        self.code[addr] = 0;
-                    }
-                    self.next();
+                    let result = if value1 == value2 { 1 } else { 0 };
+                    self.code[addr] = result;
                 },
+
                 Op::Halt => break,
             }
+
+            self.next(next_addr)
 
         }
         self.code[0]
