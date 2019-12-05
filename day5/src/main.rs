@@ -1,5 +1,8 @@
+use std::io;
 use std::fs::read_to_string;
 use std::error::Error;
+use std::io::stdout;
+use std::io::Write;
 
 type MyResult<T> = Result<T, Box<dyn Error>>;
 
@@ -41,14 +44,13 @@ impl Intcode {
         };
 
         for _ in 0..num {
-            modes.push(acc % 100);
-            acc = acc / 100;
+            modes.push(acc % 10);
+            acc = acc / 10;
         }
-        modes.reverse();
 
         let mut params: Vec<i32> = vec![];
-        if num > 1 {
-            for (&value, mode) in code[iptr+1..iptr+num].into_iter().zip(&modes) {
+        if instruction != 3 {
+            for (&value, mode) in code[iptr+1..iptr+num+1].into_iter().zip(&modes) {
                 let param: i32 = match mode {
                     0 => code[value as usize],
                     1 => value,
@@ -57,20 +59,14 @@ impl Intcode {
                 params.push(param);
             }
         }
-
         match instruction {
             1 => Op::Add(params[0], params[1], code[iptr+num] as usize),
             2 => Op::Mult(params[0], params[1], code[iptr+num] as usize),
             3 => Op::Input(code[iptr+num] as usize),
-            4 => Op::Output(code[iptr+num] as usize),
+            4 => Op::Output(params[0] as usize),
             99 => Op::Halt,
             invalid => panic!("Invalid instruction code {:?}", invalid),
         }
-    }
-
-    fn load_input(self: &mut Self, param1: i32, param2: i32) {
-        self.code[1] = param1;
-        self.code[2] = param2;
     }
 
     fn save(self: &mut Self, result: i32, addr: usize) {
@@ -100,8 +96,19 @@ impl Intcode {
             match self.op {
                 Op::Add(value1, value2, addr) => self.save(value1 + value2, addr),
                 Op::Mult(value1, value2, addr) => self.save(value1 * value2, addr),
-                Op::Input(_addr) => unimplemented!(),
-                Op::Output(_addr) => unimplemented!(),
+                Op::Input(addr) => {
+                    let mut input = String::new();
+                    println!("");
+                    print!("$ ");
+                    stdout().flush();
+                    io::stdin().read_line(&mut input).expect("Failed to read line");
+
+                    let value: i32 = input.trim().parse().unwrap();
+                    self.save(value, addr)
+                },
+                Op::Output(value) => {
+                    println!("> {:?}", value);
+                },
                 Op::Halt => break,
             }
 
@@ -114,33 +121,14 @@ impl Intcode {
 
 fn part1(data: &str) -> i32 {
     let mut program = Intcode::new(data);
-    program.load_input(12, 2);
 
     program.run()
-}
-
-fn part2(data: &str) -> i32 {
-    const EXPECTED: i32 = 19690720;
-    for noun in 0..100 {
-        for verb in 0..100 {
-            let mut program = Intcode::new(data);
-            program.load_input(noun, verb);
-
-            let result = program.run();
-            if result == EXPECTED {
-                return 100 * noun + verb
-            }
-        }
-    }
-
-    panic!("Correct pair of noun/verb is not found for {}", EXPECTED);
 }
 
 
 fn main() -> MyResult<()> {
     let data: String = read_to_string("src/input.txt")?;
-    println!("Result Part 1: {:?}", part1(&data));
-    println!("Result Part 2: {:?}", part2(&data));
+    part1(&data);
     
     Ok(())
 }
