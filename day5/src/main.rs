@@ -6,8 +6,8 @@ type MyResult<T> = Result<T, Box<dyn Error>>;
 #[repr(usize)]
 #[derive(Debug, Eq, PartialEq)]
 enum Op {
-    Add(usize, usize, usize), // 1
-    Mult(usize, usize, usize), // 2
+    Add(i32, i32, usize), // 1
+    Mult(i32, i32, usize), // 2
     Input(usize), // 3
     Output(usize), // 4
     Halt, // 99
@@ -15,7 +15,7 @@ enum Op {
 
 #[derive(Debug)]
 struct Intcode {
-    code: Vec<usize>,
+    code: Vec<i32>,
     iptr: usize,
     op: Op
 }
@@ -23,16 +23,16 @@ struct Intcode {
 impl Intcode {
     fn new(data: &str) -> Self {
         // FIXME: unwrap
-        let code = data.split(',').map(|item| item.parse::<usize>().unwrap()).collect();
+        let code: Vec<i32> = data.split(',').map(|item| item.parse::<i32>().unwrap()).collect();
         let iptr: usize = 0;
         let op = Self::parse_op(&code, iptr);
         Self{code, iptr, op}
     }
 
-    fn parse_op(code: &Vec<usize>, iptr: usize) -> Op {
+    fn parse_op(code: &Vec<i32>, iptr: usize) -> Op {
         let instruction = code[iptr] % 100; 
         let mut acc = code[iptr] / 100;
-        let mut modes: Vec<usize> = vec![];
+        let mut modes: Vec<i32> = vec![];
         let num: usize = match instruction {
             1 | 2 => 3,
             3 | 4 => 1,
@@ -46,11 +46,11 @@ impl Intcode {
         }
         modes.reverse();
 
-        let mut params: Vec<usize> = vec![];
+        let mut params: Vec<i32> = vec![];
         if num > 1 {
             for (&value, mode) in code[iptr+1..iptr+num].into_iter().zip(&modes) {
-                let param: usize = match mode {
-                    0 => code[value],
+                let param: i32 = match mode {
+                    0 => code[value as usize],
                     1 => value,
                     invalid => panic!("Invalid mode identifier: {:?}", invalid)
                 };
@@ -59,21 +59,21 @@ impl Intcode {
         }
 
         match instruction {
-            1 => Op::Add(params[0], params[1], code[iptr+num]),
-            2 => Op::Mult(params[0], params[1], code[iptr+num]),
-            3 => Op::Input(code[iptr+num]),
-            4 => Op::Output(code[iptr+num]),
+            1 => Op::Add(params[0], params[1], code[iptr+num] as usize),
+            2 => Op::Mult(params[0], params[1], code[iptr+num] as usize),
+            3 => Op::Input(code[iptr+num] as usize),
+            4 => Op::Output(code[iptr+num] as usize),
             99 => Op::Halt,
             invalid => panic!("Invalid instruction code {:?}", invalid),
         }
     }
 
-    fn load_input(self: &mut Self, param1: usize, param2: usize) {
+    fn load_input(self: &mut Self, param1: i32, param2: i32) {
         self.code[1] = param1;
         self.code[2] = param2;
     }
 
-    fn save(self: &mut Self, result: usize, addr: usize) {
+    fn save(self: &mut Self, result: i32, addr: usize) {
         self.code[addr] = result;
     }
 
@@ -95,7 +95,7 @@ impl Intcode {
         self.op = Self::parse_op(&self.code, self.iptr)
     }
 
-    fn run(self: &mut Self) -> usize {
+    fn run(self: &mut Self) -> i32 {
         while !self.finished() {
             match self.op {
                 Op::Add(value1, value2, addr) => self.save(value1 + value2, addr),
@@ -112,15 +112,15 @@ impl Intcode {
     }
 }
 
-fn part1(data: &str) -> usize {
+fn part1(data: &str) -> i32 {
     let mut program = Intcode::new(data);
     program.load_input(12, 2);
 
     program.run()
 }
 
-fn part2(data: &str) -> usize {
-    const EXPECTED: usize = 19690720;
+fn part2(data: &str) -> i32 {
+    const EXPECTED: i32 = 19690720;
     for noun in 0..100 {
         for verb in 0..100 {
             let mut program = Intcode::new(data);
