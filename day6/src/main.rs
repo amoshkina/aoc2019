@@ -30,12 +30,10 @@ fn main() -> MyResult<()> {
 
     let mut counter: u32 = 0;
     for (_satellite, center) in &map {
-        // println!("{:?}, {:?}", satellite, center);
         let mut center: &String = center;
         counter += 1;
         while *center != "COM" {
-            // println!("{:?}", center);
-            center = map.get(center).unwrap();//.ok_or("Error");
+            center = map.get(center).unwrap();
             counter += 1;
         }
     }
