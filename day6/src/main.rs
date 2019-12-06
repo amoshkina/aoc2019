@@ -17,28 +17,37 @@ struct Rel {
     satellite: String
 }
 
-fn main() -> MyResult<()> {
+fn construct_space() -> MyResult<HashMap<String, String>> {
     let file = File::open("src/input.txt")?;
     let reader = BufReader::new(file);
-    let mut map: HashMap<String, String> = HashMap::new();
+    let mut space: HashMap<String, String> = HashMap::new();
 
     for line in reader.lines() {
         let line = &line?;
         let rel: Rel = serde_scan::scan!("{}){}" <- line)?;
-        map.insert(rel.satellite, rel.center);
+        space.insert(rel.satellite, rel.center);
     }
 
+    Ok(space)
+}
+
+fn part1(space: HashMap<String, String>) -> u32 {
     let mut counter: u32 = 0;
-    for (_satellite, center) in &map {
+    for (_satellite, center) in &space {
         let mut center: &String = center;
         counter += 1;
         while *center != "COM" {
-            center = map.get(center).unwrap();
+            center = space.get(center).unwrap();
             counter += 1;
         }
     }
+    counter
+}
 
-    println!("Result Part 1: {:?}", counter);
+fn main() -> MyResult<()> {
+    let space = construct_space()?;
+
+    println!("Result Part 1: {:?}", part1(space));
 
     Ok(())
 }
