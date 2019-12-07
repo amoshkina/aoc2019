@@ -1,8 +1,5 @@
-// use std::io;
 use std::fs::read_to_string;
 use std::error::Error;
-// use std::io::stdout;
-// use std::io::Write;
 use std::mem::swap;
 use std::cmp::max;
 use std::collections::HashSet;
@@ -164,13 +161,8 @@ fn permutate(set: HashSet<i32>) -> Vec<Vec<i32>> {
     result
 }
 
-
-fn main() -> MyResult<()> {
-    let data: String = read_to_string("src/input.txt")?;
-    let mut program;
-    let zero_input: i32 = 0;
-    let mut input: Vec<i32>;
-    let mut output: Vec<i32>;
+fn part1(data: &str) -> MyResult<i32> {
+    let (mut input, mut output): (Vec<i32>, Vec<i32>);
 
     let mut result: i32 = 0;
 
@@ -179,19 +171,24 @@ fn main() -> MyResult<()> {
 
     for phases in permutate(set) {
         input = vec![];
-        output = vec![zero_input];
+        output = vec![0];
         for &phase in &phases {
             swap(&mut input, &mut output);
             input.push(phase);
 
-            program = Intcode::new(&data);
+            let mut program = Intcode::new(&data);
             program.run(&mut input, &mut output);           
         }
         result = max(result, output.pop().unwrap());
-       
     }
+    Ok(result)
+}
 
-    println!("Result Part 1: {:?}", result);
+
+fn main() -> MyResult<()> {
+    let data: String = read_to_string("src/input.txt")?;
+
+    println!("Result Part 1: {:?}", part1(&data)?);
     
     Ok(())
 }
