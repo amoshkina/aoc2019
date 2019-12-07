@@ -29,6 +29,23 @@ struct Intcode {
     op: Op
 }
 
+
+#[derive(Debug)]
+struct IO {
+    stream: Vec<i32>,
+    blocking: bool
+}
+
+impl IO {
+    fn new(blocking: bool) -> Self {
+        Self{
+            stream: vec![],
+            blocking: blocking
+        }
+    }
+}
+
+
 impl Intcode {
     fn new(data: &str) -> Self {
         // FIXME: unwrap
@@ -107,7 +124,7 @@ impl Intcode {
         self.op = Self::parse_op(&self.code, self.iptr);
     }
 
-    fn run(self: &mut Self, input: &mut Vec<i32>, output: &mut Vec<i32>, input_block: bool, output_block: bool) -> i32 {
+    fn run(self: &mut Self, input: &mut IO, output: &mut IO) -> i32 {
         while !self.finished() {
             let mut next_addr: Option<usize> = None;
             match self.op {
@@ -116,9 +133,9 @@ impl Intcode {
                 Op::Mult(value1, value2, addr) => self.save(value1 * value2, addr),
 
                 Op::Input(addr) => {
-                    let value: i32 = input.pop().unwrap();
+                    let value: i32 = input.stream.pop().unwrap();
                     self.save(value, addr);
-                    if input_block {
+                    if input.blocking {
                         self.next(next_addr);
                         return 3
                     }
@@ -126,8 +143,8 @@ impl Intcode {
                 },
 
                 Op::Output(value) => {
-                    output.push(value);
-                    if output_block {
+                    output.stream.push(value);
+                    if output.blocking {
                         self.next(next_addr);
                         return 4
                     }
@@ -174,23 +191,24 @@ fn permutate(set: HashSet<i32>) -> Vec<Vec<i32>> {
 }
 
 fn part1(data: &str) -> MyResult<i32> {
-    let (mut input, mut output): (Vec<i32>, Vec<i32>);
+    let (mut input, mut output): (IO, IO);
 
     let mut result: i32 = 0;
 
     let set = init_set(0..5);
 
     for phases in permutate(set) {
-        input = vec![];
-        output = vec![0];
+        input = IO::new(false);
+        output = IO::new(false);
+        output.stream.push(0);
         for &phase in &phases {
-            swap(&mut input, &mut output);
-            input.push(phase);
+            swap(&mut input.stream, &mut output.stream);
+            input.stream.push(phase);
 
             let mut program = Intcode::new(&data);
-            program.run(&mut input, &mut output, false, false);           
+            program.run(&mut input, &mut output);           
         }
-        result = max(result, output.pop().unwrap());
+        result = max(result, output.stream.pop().unwrap());
     }
     Ok(result)
 }
@@ -202,42 +220,42 @@ fn init_set(range: Range<i32>) -> HashSet<i32> {
 }
 
 fn feedback_loop(amplifiers: &mut Vec<Intcode>) -> i32 {
-    let (mut input, mut output): (Vec<i32>, Vec<i32>);
+    let (mut input, mut output): (IO, IO);
     let mut i: usize = 0;
-    input = vec![0];
-    output = vec![];    
+    input = IO::new(false);
+    input.stream.push(0);
+    output = IO::new(true);    
     loop {
-        assert!(output.is_empty());
-        assert!(!input.is_empty());
+        assert!(output.stream.is_empty());
+        assert!(!input.stream.is_empty());
         
-        let ret = amplifiers[i].run(&mut input, &mut output, false, true);
-        swap(&mut input, &mut output);
+        let ret = amplifiers[i].run(&mut input, &mut output);
+        swap(&mut input.stream, &mut output.stream);
         if ret == 0 {
             break;
         }
         
         i = (i + 1) % 5;
     }
-    output.pop().unwrap()
+    output.stream.pop().unwrap()
 }
 
 
 fn part2(data: &str) -> MyResult<i32> {
-    let (mut input, mut output): (Vec<i32>, Vec<i32>);
+    let (mut input, mut output): (IO, IO);
     let mut amplifiers: Vec<Intcode>;
     let mut result: i32 = 0;
     let set = init_set(5..10);
 
-
     for phases in permutate(set) {
-        input = vec![];
-        output = vec![];
+        input = IO::new(true);
+        output = IO::new(true);
         amplifiers = vec![Intcode::new(&data); 5];
         // initializing amplifiers with the phase
         for (i, &phase) in phases.iter().enumerate() {
-            input.push(phase);
-            amplifiers[i].run(&mut input, &mut output, true, true);
-            assert!(input.is_empty());
+            input.stream.push(phase);
+            amplifiers[i].run(&mut input, &mut output);
+            assert!(input.stream.is_empty());
         }
         result = max(result, feedback_loop(&mut amplifiers));
     }
