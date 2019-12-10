@@ -213,7 +213,6 @@ fn part(data: &str, param: i64) -> i64 {
 fn main() -> MyResult<()> {
     let data: String = read_to_string("src/input.txt")?;
 
-    // FIXME: part 2 is too slow, needs to profile
     for param in 1..3 {
         println!("Result Part {}: {:?}", param, part(&data, param));
     }
