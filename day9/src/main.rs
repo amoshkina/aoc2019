@@ -1,9 +1,6 @@
 use std::fs::read_to_string;
 use std::error::Error;
-use std::mem::swap;
-use std::cmp::max;
-use std::collections::HashSet;
-use std::ops::Range;
+use std::default::Default;
 
 
 type MyResult<T> = Result<T, Box<dyn Error>>;
@@ -11,28 +8,31 @@ type MyResult<T> = Result<T, Box<dyn Error>>;
 #[repr(usize)]
 #[derive(Debug, Eq, PartialEq, Clone)]
 enum Op {
-    Add(i32, i32, usize), // 1
-    Mult(i32, i32, usize), // 2
+    Add(i64, i64, usize), // 1
+    Mult(i64, i64, usize), // 2
     Input(usize), // 3
-    Output(i32), // 4
-    JumpTrue(i32, usize), // 5
-    JumpFalse(i32, usize), // 6
-    Less(i32, i32, usize), // 7
-    Equals(i32, i32, usize), // 8
+    Output(i64), // 4
+    JumpTrue(i64, usize), // 5
+    JumpFalse(i64, usize), // 6
+    Less(i64, i64, usize), // 7
+    Equals(i64, i64, usize), // 8
+    AdjustBase(i64), // 9
     Halt, // 99
 }
 
 #[derive(Debug, Clone)]
 struct Intcode {
-    code: Vec<i32>,
+    // TODO: refactor with autoresizable custom vector to avoid inlining "resize_with"
+    code: Vec<i64>,
     iptr: usize,
-    op: Op
+    op: Op,
+    base: i64
 }
 
 
 #[derive(Debug)]
 struct IO {
-    stream: Vec<i32>,
+    stream: Vec<i64>,
     blocking: bool
 }
 
@@ -49,20 +49,22 @@ impl IO {
 impl Intcode {
     fn new(data: &str) -> Self {
         // FIXME: unwrap
-        let code: Vec<i32> = data.split(',').map(|item| item.parse::<i32>().unwrap()).collect();
+        let mut code: Vec<i64> = data.split(',').map(|item| item.parse::<i64>().unwrap()).collect();
         let iptr: usize = 0;
-        let op = Self::parse_op(&code, iptr);
-        Self{code, iptr, op}
+        let base: i64 = 0;
+        let op = Self::parse_op(&mut code, iptr, base);
+        Self{code, iptr, op, base}
     }
 
-    fn parse_op(code: &Vec<i32>, iptr: usize) -> Op {
+    fn parse_op(code: &mut Vec<i64>, iptr: usize, base: i64) -> Op {
         let instruction = code[iptr] % 100; 
         let mut acc = code[iptr] / 100;
-        let mut modes: Vec<i32> = vec![];
+        let mut modes: Vec<i64> = vec![];
         let num: usize = match instruction {
             1 | 2 | 7 | 8 => 3,
             3 | 4 => 1,
             5 | 6 => 2,
+            9     => 1,
             99    => 0,
             invalid => panic!("Invalid instruction code {:?}", invalid),
         };
@@ -72,32 +74,49 @@ impl Intcode {
             acc = acc / 10;
         }
 
-        let mut params: Vec<i32> = vec![];
-        if instruction != 3 {
-            for (&value, mode) in code[iptr+1..iptr+num+1].into_iter().zip(&modes) {
-                let param: i32 = match mode {
-                    0 => code[value as usize],
-                    1 => value,
-                    invalid => panic!("Invalid mode identifier: {:?}", invalid)
-                };
-                params.push(param);
-            }
+        let mut params: Vec<i64> = vec![];
+        let values: Vec<i64> = code[iptr+1..iptr+num+1].iter().cloned().collect();
+        for (&value, mode) in values.iter().zip(&modes) {
+            let param: i64 = match mode {
+                0 => {
+                    if value >= code.len() as i64 {
+                        code.resize_with((value+1) as usize, Default::default)
+                    }
+                    code[value as usize]
+                },
+                1 => value,
+                2 => code[(base + value) as usize],
+                invalid => panic!("Invalid mode identifier: {:?}", invalid)
+            };
+            params.push(param);
         }
+        
+        // FIXME: this is some sort of a hack, I do not like it, but normal flow with "params" doesn't work
+        let mut write_addr: usize = code[iptr+num] as usize;
+        if modes.len() > 0 && modes[modes.len()-1] == 2 {
+            write_addr = (code[iptr+num] + base) as usize;
+        }
+
         match instruction {
-            1 => Op::Add(params[0], params[1], code[iptr+num] as usize),
-            2 => Op::Mult(params[0], params[1], code[iptr+num] as usize),
-            3 => Op::Input(code[iptr+num] as usize),
+            1 => Op::Add(params[0], params[1], write_addr),
+            2 => Op::Mult(params[0], params[1], write_addr),
+            3 => Op::Input(write_addr),
             4 => Op::Output(params[0]),
             5 => Op::JumpTrue(params[0], params[1] as usize),
             6 => Op::JumpFalse(params[0], params[1] as usize),
-            7 => Op::Less(params[0], params[1], code[iptr+num] as usize),
-            8 => Op::Equals(params[0], params[1], code[iptr+num] as usize),
+            7 => Op::Less(params[0], params[1], write_addr),
+            8 => Op::Equals(params[0], params[1], write_addr),
+            9 => Op::AdjustBase(params[0]),
             99 => Op::Halt,
             invalid => panic!("Invalid instruction code {:?}", invalid),
         }
     }
 
-    fn save(self: &mut Self, result: i32, addr: usize) {
+    fn save(self: &mut Self, result: i64, addr: usize) {
+        if addr >= self.code.len() {
+            self.code.resize_with(addr+1, Default::default)
+        }
+
         self.code[addr] = result;
     }
 
@@ -109,7 +128,7 @@ impl Intcode {
         match self.op {
             Op::Add(_, _ ,_) | Op::Mult(_, _, _) | Op::Less(_, _, _) | Op::Equals(_, _, _) => 3,
             Op::JumpTrue(_, _) | Op::JumpFalse(_, _) => 2,
-            Op::Input(_) | Op::Output(_) => 1,
+            Op::Input(_) | Op::Output(_) | Op::AdjustBase(_) => 1,
             Op::Halt => 0
         }    
     }
@@ -121,10 +140,10 @@ impl Intcode {
         };
 
         self.iptr = addr;
-        self.op = Self::parse_op(&self.code, self.iptr);
+        self.op = Self::parse_op(&mut self.code, self.iptr, self.base);
     }
 
-    fn run(self: &mut Self, input: &mut IO, output: &mut IO) -> i32 {
+    fn run(self: &mut Self, input: &mut IO, output: &mut IO) -> i64 {
         while !self.finished() {
             let mut next_addr: Option<usize> = None;
             match self.op {
@@ -133,7 +152,7 @@ impl Intcode {
                 Op::Mult(value1, value2, addr) => self.save(value1 * value2, addr),
 
                 Op::Input(addr) => {
-                    let value: i32 = input.stream.pop().unwrap();
+                    let value: i64 = input.stream.pop().unwrap();
                     self.save(value, addr);
                     if input.blocking {
                         self.next(next_addr);
@@ -164,6 +183,8 @@ impl Intcode {
                     self.code[addr] = result;
                 },
 
+                Op::AdjustBase(value) => self.base += value,
+
                 Op::Halt => break,
             }
             self.next(next_addr)
@@ -172,102 +193,23 @@ impl Intcode {
     }
 }
 
+fn part1(data: &str) -> i64 {
+    let (mut input, mut output): (IO, IO);  
 
-fn permutate(set: HashSet<i32>) -> Vec<Vec<i32>> {
-    if set.is_empty() {
-        return vec![vec![]]
-    }
-    let mut result: Vec<Vec<i32>> = vec![];
-    for &item in &set {
-        let mut other = set.clone();
-        other.remove(&item);
-        let smaller = permutate(other);
-        for mut s in smaller {
-            s.push(item);
-            result.push(s);
-        }
-    }
-    result
-}
-
-fn part1(data: &str) -> MyResult<i32> {
-    let (mut input, mut output): (IO, IO);
-
-    let mut result: i32 = 0;
-
-    let set = init_set(0..5);
-
-    for phases in permutate(set) {
-        input = IO::new(false);
-        output = IO::new(false);
-        output.stream.push(0);
-        for &phase in &phases {
-            swap(&mut input.stream, &mut output.stream);
-            input.stream.push(phase);
-
-            let mut program = Intcode::new(&data);
-            program.run(&mut input, &mut output);           
-        }
-        result = max(result, output.stream.pop().unwrap());
-    }
-    Ok(result)
-}
-
-fn init_set(range: Range<i32>) -> HashSet<i32> {
-    let mut set: HashSet<i32> = HashSet::new();
-    for item in range { set.insert(item); }
-    set
-}
-
-fn feedback_loop(amplifiers: &mut Vec<Intcode>) -> i32 {
-    let (mut input, mut output): (IO, IO);
-    let mut i: usize = 0;
+    let mut program = Intcode::new(&data);
     input = IO::new(false);
-    input.stream.push(0);
-    output = IO::new(true);    
-    loop {
-        assert!(output.stream.is_empty());
-        assert!(!input.stream.is_empty());
-        
-        let ret = amplifiers[i].run(&mut input, &mut output);
-        swap(&mut input.stream, &mut output.stream);
-        if ret == 0 {
-            break;
-        }
-        
-        i = (i + 1) % 5;
-    }
+    output = IO::new(false);
+    input.stream.push(1);
+    program.run(&mut input, &mut output);
+    // FIXME: unwrap
     output.stream.pop().unwrap()
-}
-
-
-fn part2(data: &str) -> MyResult<i32> {
-    let (mut input, mut output): (IO, IO);
-    let mut amplifiers: Vec<Intcode>;
-    let mut result: i32 = 0;
-    let set = init_set(5..10);
-
-    for phases in permutate(set) {
-        input = IO::new(true);
-        output = IO::new(true);
-        amplifiers = vec![Intcode::new(&data); 5];
-        // initializing amplifiers with the phase
-        for (i, &phase) in phases.iter().enumerate() {
-            input.stream.push(phase);
-            amplifiers[i].run(&mut input, &mut output);
-            assert!(input.stream.is_empty());
-        }
-        result = max(result, feedback_loop(&mut amplifiers));
-    }
-    Ok(result)
 }
 
 
 fn main() -> MyResult<()> {
     let data: String = read_to_string("src/input.txt")?;
 
-    println!("Result Part 1: {:?}", part1(&data)?);
-    println!("Result Part 2: {:?}", part2(&data)?);
+    println!("Result Part 1: {:?}", part1(&data));
     
     Ok(())
 }
