@@ -45,6 +45,12 @@ impl IO {
     }
 }
 
+fn resize(code: &mut Vec<i64>, addr: usize) {
+    if addr >= code.len() {
+        code.resize_with((addr+1) as usize, Default::default)
+    }
+}
+
 
 impl Intcode {
     fn new(data: &str) -> Self {
@@ -79,13 +85,14 @@ impl Intcode {
         for (&value, mode) in values.iter().zip(&modes) {
             let param: i64 = match mode {
                 0 => {
-                    if value >= code.len() as i64 {
-                        code.resize_with((value+1) as usize, Default::default)
-                    }
+                    resize(code, value as usize);
                     code[value as usize]
                 },
                 1 => value,
-                2 => code[(base + value) as usize],
+                2 => {
+                    resize(code, (base+value) as usize);
+                    code[(base + value) as usize]
+                },
                 invalid => panic!("Invalid mode identifier: {:?}", invalid)
             };
             params.push(param);
@@ -113,10 +120,7 @@ impl Intcode {
     }
 
     fn save(self: &mut Self, result: i64, addr: usize) {
-        if addr >= self.code.len() {
-            self.code.resize_with(addr+1, Default::default)
-        }
-
+        resize(&mut self.code, addr);
         self.code[addr] = result;
     }
 
@@ -193,13 +197,13 @@ impl Intcode {
     }
 }
 
-fn part1(data: &str) -> i64 {
+fn part(data: &str, param: i64) -> i64 {
     let (mut input, mut output): (IO, IO);  
 
     let mut program = Intcode::new(&data);
     input = IO::new(false);
     output = IO::new(false);
-    input.stream.push(1);
+    input.stream.push(param);
     program.run(&mut input, &mut output);
     // FIXME: unwrap
     output.stream.pop().unwrap()
@@ -209,7 +213,11 @@ fn part1(data: &str) -> i64 {
 fn main() -> MyResult<()> {
     let data: String = read_to_string("src/input.txt")?;
 
-    println!("Result Part 1: {:?}", part1(&data));
+    // FIXME: part 2 is too slow, needs to profile
+    for param in 1..3 {
+        println!("Result Part {}: {:?}", param, part(&data, param));
+    }
+    
     
     Ok(())
 }
