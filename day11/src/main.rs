@@ -236,10 +236,11 @@ enum Dir {
 }
 
 const BLACK: i64 = 0;
+const WHITE: i64 = 1;
 const LEFT_90: i64 = 0;
 const RIGHT_90: i64 = 1;
 
-fn part1(data: &str) -> i64 {
+fn run_robot(data: &str, start_color: i64) -> HashMap<(i64, i64), i64> {
     let (mut input, mut output): (IO, IO);  
     input = IO::new(false);
     output = IO::new(true);
@@ -248,6 +249,7 @@ fn part1(data: &str) -> i64 {
     let mut panels: HashMap<(i64, i64), i64> = HashMap::new();
     let mut pos: (i64, i64) = (0, 0);
     let mut dir: Dir = Dir::Up;
+    panels.entry(pos).or_insert(start_color);
     loop {
         let color = panels.entry(pos).or_insert(BLACK);
         input.stream.push(*color);
@@ -263,13 +265,50 @@ fn part1(data: &str) -> i64 {
         dir = turn(dir, turn_to);
         pos = step(pos, &dir);
     }
+    panels
+}
+
+fn part1(data: &str) -> i64 {
+    let panels = run_robot(data, BLACK);
     panels.len() as i64
+}
+
+fn part2(data: &str) -> MyResult<()> {
+    let panels = run_robot(data, WHITE);
+    let min_x: i64 = *panels.keys().map(|(x, _)| x).min().unwrap();//.ok_or(Box::from("error"))?;
+    let mut min_y: i64 = *panels.keys().map(|(_, y)| y).min().unwrap();
+    let max_x: i64 = *panels.keys().map(|(x, _)| x).max().unwrap();
+    let mut max_y: i64 = *panels.keys().map(|(_, y)| y).max().unwrap();
+    println!("x {:?} {:?} | y {:?} {:?} ", min_x, max_x, min_y, max_y);
+    let mut shift_y: i64 = 0;
+    if min_y < 0 {
+        shift_y = min_y.abs();
+    }
+
+    min_y += shift_y;
+    max_y += shift_y;
+
+    let mut grid: Vec<Vec<i64>> = vec![vec![BLACK; (max_x-min_x+1) as usize]; (max_y-min_y+1) as usize];
+    for ((x, y), color) in panels.iter() {
+        grid[(y+shift_y) as usize][*x as usize] = *color;
+    }
+    println!("grid.height {:?}", grid.len());
+    println!("grid.width {:?}", grid[0].len());
+    grid.reverse();
+    for line in grid.iter() {
+        let line: String = line.iter().map(|&ch| if ch == 0 { "  ".to_string() } else { "0 ".to_string() }).collect();
+        println!("{:?}", line);
+    }
+
+    Ok(())
+    
 }
 
 fn main() -> MyResult<()> {
     let data: String = read_to_string("src/input.txt")?;
 
     println!("Result Part 1: {:?}", part1(&data));
+    println!("Result Part 2: {:?}", part2(&data));
     
     Ok(())
 }
