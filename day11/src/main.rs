@@ -278,12 +278,6 @@ fn main() -> MyResult<()> {
         dir = turn(dir, turn_to);
         pos = step(pos, &dir);
     }
-    // let mut keys = panels.keys().collect::<Vec<&(i64, i64)>>();
-    // keys.sort();
-    // println!("{:?}", keys);
-    // for (panel, _) in panels.iter() {
-    //     println!("{:?}", panel);
-    // }
     
     println!("Result Part 1: {:?}", panels.len());
     
