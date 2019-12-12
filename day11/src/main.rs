@@ -198,18 +198,6 @@ impl Intcode {
     }
 }
 
-// fn part(data: &str, param: i64) -> i64 {
-//     let (mut input, mut output): (IO, IO);  
-
-//     let mut program = Intcode::new(&data);
-//     input = IO::new(false);
-//     output = IO::new(false);
-//     input.stream.push(param);
-//     program.run(&mut input, &mut output);
-//     // FIXME: unwrap
-//     output.stream.pop().unwrap()
-// }
-
 fn step((x, y): (i64, i64), dir: &Dir) -> (i64, i64) {
     match &dir {
         Dir::Up    => (x, y+1),
@@ -251,10 +239,7 @@ const BLACK: i64 = 0;
 const LEFT_90: i64 = 0;
 const RIGHT_90: i64 = 1;
 
-
-fn main() -> MyResult<()> {
-    let data: String = read_to_string("src/input.txt")?;
-
+fn part1(data: &str) -> i64 {
     let (mut input, mut output): (IO, IO);  
     input = IO::new(false);
     output = IO::new(true);
@@ -278,8 +263,13 @@ fn main() -> MyResult<()> {
         dir = turn(dir, turn_to);
         pos = step(pos, &dir);
     }
-    
-    println!("Result Part 1: {:?}", panels.len());
+    panels.len() as i64
+}
+
+fn main() -> MyResult<()> {
+    let data: String = read_to_string("src/input.txt")?;
+
+    println!("Result Part 1: {:?}", part1(&data));
     
     Ok(())
 }
