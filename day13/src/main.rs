@@ -198,117 +198,20 @@ impl Intcode {
     }
 }
 
-fn step((x, y): (i64, i64), dir: &Dir) -> (i64, i64) {
-    match &dir {
-        Dir::Up    => (x, y+1),
-        Dir::Right => (x+1, y),
-        Dir::Left  => (x-1, y), 
-        Dir::Down  => (x, y-1)
-    }
+fn part1(data: &str) -> usize {
+    let mut input = IO::new(false);
+    let mut output = IO::new(false);
+
+    let mut program = Intcode::new(&data);
+    program.run(&mut input, &mut output);
+    output.stream.iter().enumerate().filter(|(i, item)| (i + 1) % 3 == 0 && **item == 2).count()
 }
 
-fn turn(dir: Dir, to: i64) -> Dir {
-    match to {
-        LEFT_90 => match dir {
-            Dir::Up    => Dir::Left,
-            Dir::Right => Dir::Up,
-            Dir::Down  => Dir::Right,
-            Dir::Left  => Dir::Down, 
-           
-        },
-        RIGHT_90 => match dir {
-            Dir::Up    => Dir::Right,
-            Dir::Right => Dir::Down,
-            Dir::Down  => Dir::Left,
-            Dir::Left  => Dir::Up, 
-           
-        },
-        invalid => panic!("Invalid turn option: {}", invalid)
-    }
-}
-
-#[derive(Debug)]
-enum Dir {
-    Up,
-    Right,
-    Down,
-    Left
-}
-
-const BLACK: i64 = 0;
-const WHITE: i64 = 1;
-const LEFT_90: i64 = 0;
-const RIGHT_90: i64 = 1;
-
-fn run_robot(data: &str, start_color: i64) -> HashMap<(i64, i64), i64> {
-    let (mut input, mut output): (IO, IO);  
-    input = IO::new(false);
-    output = IO::new(true);
-
-    let mut brain = Intcode::new(&data);
-    let mut panels: HashMap<(i64, i64), i64> = HashMap::new();
-    let mut pos: (i64, i64) = (0, 0);
-    let mut dir: Dir = Dir::Up;
-    panels.entry(pos).or_insert(start_color);
-    loop {
-        let color = panels.entry(pos).or_insert(BLACK);
-        input.stream.push(*color);
-        if brain.run(&mut input, &mut output) == 0 {
-            break;
-        }
-        let new_color = output.stream.pop().unwrap();
-        if brain.run(&mut input, &mut output) == 0 {
-            break;
-        }
-        let turn_to = output.stream.pop().unwrap();
-        *color = new_color;
-        dir = turn(dir, turn_to);
-        pos = step(pos, &dir);
-    }
-    panels
-}
-
-fn part1(data: &str) -> i64 {
-    let panels = run_robot(data, BLACK);
-    panels.len() as i64
-}
-
-fn part2(data: &str) -> MyResult<()> {
-    let panels = run_robot(data, WHITE);
-    let min_x: i64 = *panels.keys().map(|(x, _)| x).min().unwrap();//.ok_or(Box::from("error"))?;
-    let mut min_y: i64 = *panels.keys().map(|(_, y)| y).min().unwrap();
-    let max_x: i64 = *panels.keys().map(|(x, _)| x).max().unwrap();
-    let mut max_y: i64 = *panels.keys().map(|(_, y)| y).max().unwrap();
-    println!("x {:?} {:?} | y {:?} {:?} ", min_x, max_x, min_y, max_y);
-    let mut shift_y: i64 = 0;
-    if min_y < 0 {
-        shift_y = min_y.abs();
-    }
-
-    min_y += shift_y;
-    max_y += shift_y;
-
-    let mut grid: Vec<Vec<i64>> = vec![vec![BLACK; (max_x-min_x+1) as usize]; (max_y-min_y+1) as usize];
-    for ((x, y), color) in panels.iter() {
-        grid[(y+shift_y) as usize][*x as usize] = *color;
-    }
-    println!("grid.height {:?}", grid.len());
-    println!("grid.width {:?}", grid[0].len());
-    grid.reverse();
-    for line in grid.iter() {
-        let line: String = line.iter().map(|&ch| if ch == 0 { "  ".to_string() } else { "0 ".to_string() }).collect();
-        println!("{:?}", line);
-    }
-
-    Ok(())
-    
-}
 
 fn main() -> MyResult<()> {
     let data: String = read_to_string("src/input.txt")?;
 
     println!("Result Part 1: {:?}", part1(&data));
-    println!("Result Part 2: {:?}", part2(&data));
     
     Ok(())
 }
