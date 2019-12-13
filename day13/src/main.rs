@@ -1,7 +1,6 @@
 use std::fs::read_to_string;
 use std::error::Error;
 use std::default::Default;
-use std::collections::HashMap;
 
 
 type MyResult<T> = Result<T, Box<dyn Error>>;
@@ -54,7 +53,7 @@ fn resize(code: &mut Vec<i64>, addr: usize) {
 
 
 impl Intcode {
-    fn new(data: &str) -> Self {
+    fn new(data: &str, ) -> Self {
         // FIXME: unwrap
         let mut code: Vec<i64> = data.split(',').map(|item| item.parse::<i64>().unwrap()).collect();
         let iptr: usize = 0;
@@ -198,20 +197,74 @@ impl Intcode {
     }
 }
 
-fn part1(data: &str) -> usize {
-    let mut input = IO::new(false);
+// fn part1(data: &str) -> usize {
+//     let mut input = IO::new(false);
+//     let mut output = IO::new(false);
+
+//     let mut program = Intcode::new(&data);
+//     program.run(&mut input, &mut output);
+//     output.stream.iter().enumerate().filter(|(i, item)| (i + 1) % 3 == 0 && **item == 2).count()
+// }
+
+fn get_tile(key: i64) -> char {
+    match key {
+        0 => ' ',
+        1 => '|',
+        2 => 'Z',
+        3 => '_',
+        4 => 'O',
+        invalid => panic!("Invalid key: {:?}", invalid)
+    }
+}
+
+fn print_layout(layout: &Vec<Vec<char>>) {
+    for line in layout.iter() {
+        let line: String = line.iter().map(|&ch| ch.to_string()).collect();
+        println!("{:?}", line);
+    }
+}
+
+fn construct_layout(stream: &mut Vec<i64>) -> Vec<Vec<char>> {
+    let mut layout: Vec<Vec<char>> = vec![vec![' '; 42]; 23];
+    while !stream.is_empty() {
+        let key = stream.pop().unwrap();
+        let y = stream.pop().unwrap();
+        let x = stream.pop().unwrap();
+        if x == -1 && y == 0 {
+            println!("Current score: {:?}", key);
+        } else {
+            let tile = get_tile(key);
+            layout[y as usize][x as usize] = tile;
+        }
+    }
+    layout
+
+}
+
+fn part2(data: &str) {
+    let mut input = IO::new(true);
     let mut output = IO::new(false);
 
     let mut program = Intcode::new(&data);
-    program.run(&mut input, &mut output);
-    output.stream.iter().enumerate().filter(|(i, item)| (i + 1) % 3 == 0 && **item == 2).count()
-}
 
+    for item in vec![0;1000].iter() {
+        input.stream.push(*item);
+    }
+
+    for _i in 0..input.stream.len() {
+        program.run(&mut input, &mut output);
+        // println!("state: {:?}, iptr: {:?}", program.code[program.iptr], program.iptr);
+    }
+
+    let layout = construct_layout(&mut output.stream);
+    print_layout(&layout);
+
+}
 
 fn main() -> MyResult<()> {
     let data: String = read_to_string("src/input.txt")?;
 
-    println!("Result Part 1: {:?}", part1(&data));
-    
+    // println!("Result Part 1: {:?}", part1(&data));
+    part2(&data);
     Ok(())
 }
