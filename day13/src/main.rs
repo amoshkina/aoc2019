@@ -197,14 +197,53 @@ impl Intcode {
     }
 }
 
-// fn part1(data: &str) -> usize {
-//     let mut input = IO::new(false);
-//     let mut output = IO::new(false);
+fn part1(data: &str) -> usize {
+    let mut input = IO::new(false);
+    let mut output = IO::new(false);
 
-//     let mut program = Intcode::new(&data);
-//     program.run(&mut input, &mut output);
-//     output.stream.iter().enumerate().filter(|(i, item)| (i + 1) % 3 == 0 && **item == 2).count()
-// }
+    let mut program = Intcode::new(&data);
+    program.run(&mut input, &mut output);
+    output.stream.iter().enumerate().filter(|(i, item)| (i + 1) % 3 == 0 && **item == 2).count()
+}
+
+#[derive(Debug)]
+struct Layout {
+    grid: Vec<Vec<char>>,
+    ball: (i64, i64),
+    paddle: (i64, i64),
+    score: i64
+}
+
+impl Layout {
+    fn new() -> Self {
+        Self{
+            grid: vec![vec![' '; 42]; 23],
+            ball: (-1, -1),
+            paddle: (-1, -1),
+            score: 0
+        }
+    }
+
+    fn update_layout(self: &mut Self, stream: &mut Vec<i64>) {
+        while !stream.is_empty() {
+            let key = stream.pop().unwrap();
+            let y = stream.pop().unwrap();
+            let x = stream.pop().unwrap();
+            if x == -1 && y == 0 {
+                self.score = key;
+            } else {
+                let tile = get_tile(key);
+                if tile == 'O' {
+                    self.ball = (x, y);
+                } else if tile == '_' {
+                    self.paddle = (x, y);
+                }
+                self.grid[y as usize][x as usize] = tile;
+            }
+        }
+    }
+
+}
 
 fn get_tile(key: i64) -> char {
     match key {
@@ -217,48 +256,31 @@ fn get_tile(key: i64) -> char {
     }
 }
 
-fn print_layout(layout: &Vec<Vec<char>>) {
-    for line in layout.iter() {
-        let line: String = line.iter().map(|&ch| ch.to_string()).collect();
-        println!("{:?}", line);
-    }
-}
-
-fn update_layout(layout: &mut Vec<Vec<char>>, stream: &mut Vec<i64>, ball_pos: &mut (i64, i64), paddle_pos: &mut (i64, i64)) {
-    while !stream.is_empty() {
-        let key = stream.pop().unwrap();
-        let y = stream.pop().unwrap();
-        let x = stream.pop().unwrap();
-        if x == -1 && y == 0 {
-            println!("Current score: {:?}", key);
-        } else {
-            let tile = get_tile(key);
-            if tile == 'O' {
-                *ball_pos = (x, y);
-            } else if tile == '_' {
-                *paddle_pos = (x, y);
-            }
-            layout[y as usize][x as usize] = tile;
+fn print_layout(layout: &Layout) -> MyResult<()> {
+    for (i, line) in layout.grid.iter().enumerate() {
+        let mut line: String = line.iter().map(|&ch| ch.to_string()).collect();
+        if i == 0 {
+            line.push(' ');
+            line.push_str(&layout.score.to_string());
         }
+        println!("{}", line);
     }
+    Ok(())
 }
 
 
-
-fn part2(data: &str) {
+fn part2(data: &str) -> MyResult<()> {
     let mut input = IO::new(true);
     let mut output = IO::new(false);
 
     let mut program = Intcode::new(&data);
-    let mut layout: Vec<Vec<char>> = vec![vec![' '; 42]; 23];
+    let mut layout: Layout = Layout::new();
 
     let mut moves = vec![0,0,0,1,1,1,1,1,1,0,0,0,0];
     moves.reverse();
     for item in moves.iter() {
         input.stream.push(*item);
     }
-    let mut ball_pos: (i64, i64) = (-1, -1);
-    let mut paddle_pos: (i64, i64) = (-1, -1);
 
     let mut step: i64 = 0;
     while input.stream.len() > 0 {
@@ -267,21 +289,21 @@ fn part2(data: &str) {
 
         println!("step: {:?}", step);
         println!("stream: {:?}", output.stream);
-        update_layout(&mut layout, &mut output.stream, &mut ball_pos, &mut paddle_pos);
-        println!("ball position: {:?}", ball_pos);
+        layout.update_layout(&mut output.stream);
+        println!("ball position: {:?}", layout.ball);
         
         print_layout(&layout);
         println!("---------------------------------------------------");
         // println!("state: {:?}, iptr: {:?}", program.code[program.iptr], program.iptr);
         step += 1;
     }
-
+    Ok(())
 }
 
 fn main() -> MyResult<()> {
     let data: String = read_to_string("src/input.txt")?;
 
-    // println!("Result Part 1: {:?}", part1(&data));
+    println!("Result Part 1: {:?}", part1(&data));
     part2(&data);
     Ok(())
 }
