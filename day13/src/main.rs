@@ -224,8 +224,7 @@ fn print_layout(layout: &Vec<Vec<char>>) {
     }
 }
 
-fn construct_layout(stream: &mut Vec<i64>) -> Vec<Vec<char>> {
-    let mut layout: Vec<Vec<char>> = vec![vec![' '; 42]; 23];
+fn update_layout(layout: &mut Vec<Vec<char>>, stream: &mut Vec<i64>, ball_pos: &mut (i64, i64), paddle_pos: &mut (i64, i64)) {
     while !stream.is_empty() {
         let key = stream.pop().unwrap();
         let y = stream.pop().unwrap();
@@ -234,30 +233,48 @@ fn construct_layout(stream: &mut Vec<i64>) -> Vec<Vec<char>> {
             println!("Current score: {:?}", key);
         } else {
             let tile = get_tile(key);
+            if tile == 'O' {
+                *ball_pos = (x, y);
+            } else if tile == '_' {
+                *paddle_pos = (x, y);
+            }
             layout[y as usize][x as usize] = tile;
         }
     }
-    layout
-
 }
+
+
 
 fn part2(data: &str) {
     let mut input = IO::new(true);
     let mut output = IO::new(false);
 
     let mut program = Intcode::new(&data);
+    let mut layout: Vec<Vec<char>> = vec![vec![' '; 42]; 23];
 
-    for item in vec![0;1000].iter() {
+    let mut moves = vec![0,0,0,1,1,1,1,1,1,0,0,0,0];
+    moves.reverse();
+    for item in moves.iter() {
         input.stream.push(*item);
     }
+    let mut ball_pos: (i64, i64) = (-1, -1);
+    let mut paddle_pos: (i64, i64) = (-1, -1);
 
-    for _i in 0..input.stream.len() {
+    let mut step: i64 = 0;
+    while input.stream.len() > 0 {
+        println!("input len: {:?}", input.stream.len());
         program.run(&mut input, &mut output);
-        // println!("state: {:?}, iptr: {:?}", program.code[program.iptr], program.iptr);
-    }
 
-    let layout = construct_layout(&mut output.stream);
-    print_layout(&layout);
+        println!("step: {:?}", step);
+        println!("stream: {:?}", output.stream);
+        update_layout(&mut layout, &mut output.stream, &mut ball_pos, &mut paddle_pos);
+        println!("ball position: {:?}", ball_pos);
+        
+        print_layout(&layout);
+        println!("---------------------------------------------------");
+        // println!("state: {:?}, iptr: {:?}", program.code[program.iptr], program.iptr);
+        step += 1;
+    }
 
 }
 
