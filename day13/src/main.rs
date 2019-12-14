@@ -156,7 +156,9 @@ impl Intcode {
                 Op::Mult(value1, value2, addr) => self.save(value1 * value2, addr),
 
                 Op::Input(addr) => {
+                    assert!(!input.stream.is_empty());
                     let value: i64 = input.stream.pop().unwrap();
+                    println!("read input: {:?}", value);
                     self.save(value, addr);
                     if input.blocking {
                         self.next(next_addr);
@@ -210,8 +212,10 @@ fn part1(data: &str) -> usize {
 struct Layout {
     grid: Vec<Vec<char>>,
     ball: (i64, i64),
+    ball_dir: i64,
     paddle: (i64, i64),
-    score: i64
+    score: i64,
+    blocks: i64
 }
 
 impl Layout {
@@ -219,8 +223,10 @@ impl Layout {
         Self{
             grid: vec![vec![' '; 42]; 23],
             ball: (-1, -1),
+            ball_dir: -1,
             paddle: (-1, -1),
-            score: 0
+            score: 0,
+            blocks: 0
         }
     }
 
@@ -230,31 +236,59 @@ impl Layout {
             let y = stream.pop().unwrap();
             let x = stream.pop().unwrap();
             if x == -1 && y == 0 {
+                // a hit occurred, a ball changed it's direction
                 self.score = key;
+                self.ball_dir *= -1;
+                println!("Changing direction to {:?}", self.ball_dir);
+                // TODO: probably walls and paddle hits won't trigger the score show, needs to check
             } else {
-                let tile = get_tile(key);
-                if tile == 'O' {
-                    self.ball = (x, y);
-                } else if tile == '_' {
-                    self.paddle = (x, y);
-                }
+
+                let tile = match key {
+                    0 => {
+                        if self.grid[y as usize][x as usize] == 'Z' {
+                            // a block was broken, decreasing counter
+                            self.blocks -= 1;
+                        }
+                        ' '
+                    },
+                    1 => '|',
+                    2 => {
+                        self.blocks += 1;
+                        'Z'
+                    },
+                    3 => {
+                        self.paddle = (x, y);
+                        '_'
+                    },
+                    4 => {
+                        self.ball = (x, y);
+                        'O'
+                    },
+                    invalid => panic!("Invalid key: {:?}", invalid)
+                };
+
+                // let tile = get_tile(key);
+                // if tile == 'O' {
+                //     self.ball = (x, y);
+                // } else if tile == '_' {
+                //     self.paddle = (x, y);
+                // }
                 self.grid[y as usize][x as usize] = tile;
             }
         }
     }
-
 }
 
-fn get_tile(key: i64) -> char {
-    match key {
-        0 => ' ',
-        1 => '|',
-        2 => 'Z',
-        3 => '_',
-        4 => 'O',
-        invalid => panic!("Invalid key: {:?}", invalid)
-    }
-}
+// fn get_tile(key: i64) -> char {
+//     match key {
+//         0 => ' ',
+//         1 => '|',
+//         2 => 'Z',
+//         3 => '_',
+//         4 => 'O',
+//         invalid => panic!("Invalid key: {:?}", invalid)
+//     }
+// }
 
 fn print_layout(layout: &Layout) -> MyResult<()> {
     for (i, line) in layout.grid.iter().enumerate() {
@@ -268,6 +302,25 @@ fn print_layout(layout: &Layout) -> MyResult<()> {
     Ok(())
 }
 
+fn calculate_shift(layout: &Layout) -> i64 {
+    let mut ball_current = layout.ball;
+    // println!("ball: {:?}, paddle: {:?}", layout.ball, layout.paddle);
+    while ball_current.1 + 1 != layout.paddle.1 {
+        // println!("ball curr wip {:?}", ball_current);
+        ball_current = (ball_current.0 + layout.ball_dir, ball_current.1 + 1);
+    }
+    // println!("expected ball pos: {:?}", ball_current);
+    // println!("paddle pos: {:?}", layout.paddle);
+    let shift: i64;
+    if ball_current.0 == layout.paddle.0 {
+        shift = 0;
+    } else if ball_current.0 > layout.paddle.0 {
+        shift = 1;
+    } else {
+        shift = -1
+    }
+    shift
+}
 
 fn part2(data: &str) -> MyResult<()> {
     let mut input = IO::new(true);
@@ -276,25 +329,26 @@ fn part2(data: &str) -> MyResult<()> {
     let mut program = Intcode::new(&data);
     let mut layout: Layout = Layout::new();
 
-    let mut moves = vec![0,0,0,1,1,1,1,1,1,0,0,0,0];
-    moves.reverse();
-    for item in moves.iter() {
-        input.stream.push(*item);
-    }
+    // let mut moves = vec![0,0,0,1,1,1,1,1,1,0,0,0,0];
+    // moves.reverse();
+    // for item in moves.iter() {
+    //     input.stream.push(*item);
+    // }
 
+    input.stream.push(0);
+    // input.stream.push(0);
+
+    // println!("input: {:?}", input);
     let mut step: i64 = 0;
     while input.stream.len() > 0 {
-        println!("input len: {:?}", input.stream.len());
         program.run(&mut input, &mut output);
-
-        println!("step: {:?}", step);
-        println!("stream: {:?}", output.stream);
         layout.update_layout(&mut output.stream);
-        println!("ball position: {:?}", layout.ball);
-        
         print_layout(&layout);
+
         println!("---------------------------------------------------");
-        // println!("state: {:?}, iptr: {:?}", program.code[program.iptr], program.iptr);
+
+        let joystick = calculate_shift(&layout);
+        input.stream.push(joystick);
         step += 1;
     }
     Ok(())
@@ -303,7 +357,18 @@ fn part2(data: &str) -> MyResult<()> {
 fn main() -> MyResult<()> {
     let data: String = read_to_string("src/input.txt")?;
 
-    println!("Result Part 1: {:?}", part1(&data));
-    part2(&data);
+    // println!("Result Part 1: {:?}", part1(&data));
+    part2(&data)?;
     Ok(())
 }
+
+
+
+
+        // println!("input len: {:?}", input.stream.len());
+        // println!("step: {:?}", step);
+        // println!("stream: {:?}", output.stream);
+        
+        // println!("ball position: {:?}", layout.ball);
+        
+        // println!("state: {:?}, iptr: {:?}", program.code[program.iptr], program.iptr);
