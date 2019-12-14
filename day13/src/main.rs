@@ -212,7 +212,8 @@ fn part1(data: &str) -> usize {
 struct Layout {
     grid: Vec<Vec<char>>,
     ball: (i64, i64),
-    ball_dir: i64,
+    ball_x_rate: i64,
+    ball_y_rate: i64,
     paddle: (i64, i64),
     score: i64,
     blocks: i64
@@ -223,7 +224,8 @@ impl Layout {
         Self{
             grid: vec![vec![' '; 42]; 23],
             ball: (-1, -1),
-            ball_dir: -1,
+            ball_x_rate: 1,
+            ball_y_rate: 1,
             paddle: (-1, -1),
             score: 0,
             blocks: 0
@@ -238,9 +240,6 @@ impl Layout {
             if x == -1 && y == 0 {
                 // a hit occurred, a ball changed it's direction
                 self.score = key;
-                self.ball_dir *= -1;
-                println!("Changing direction to {:?}", self.ball_dir);
-                // TODO: probably walls and paddle hits won't trigger the score show, needs to check
             } else {
 
                 let tile = match key {
@@ -248,6 +247,12 @@ impl Layout {
                         if self.grid[y as usize][x as usize] == 'Z' {
                             // a block was broken, decreasing counter
                             self.blocks -= 1;
+
+                            // self.ball_x_rate *= -1;
+                            // self.ball_y_rate *= -1;
+                            // println!("Broken a block!");
+                            // println!("Changing x-rate to {:?}", self.ball_x_rate);
+                            // println!("Changing y-rate to {:?}", self.ball_y_rate);
                         }
                         ' '
                     },
@@ -267,28 +272,11 @@ impl Layout {
                     invalid => panic!("Invalid key: {:?}", invalid)
                 };
 
-                // let tile = get_tile(key);
-                // if tile == 'O' {
-                //     self.ball = (x, y);
-                // } else if tile == '_' {
-                //     self.paddle = (x, y);
-                // }
                 self.grid[y as usize][x as usize] = tile;
             }
         }
     }
 }
-
-// fn get_tile(key: i64) -> char {
-//     match key {
-//         0 => ' ',
-//         1 => '|',
-//         2 => 'Z',
-//         3 => '_',
-//         4 => 'O',
-//         invalid => panic!("Invalid key: {:?}", invalid)
-//     }
-// }
 
 fn print_layout(layout: &Layout) -> MyResult<()> {
     for (i, line) in layout.grid.iter().enumerate() {
@@ -303,22 +291,38 @@ fn print_layout(layout: &Layout) -> MyResult<()> {
 }
 
 fn calculate_shift(layout: &Layout) -> i64 {
-    let mut ball_current = layout.ball;
-    // println!("ball: {:?}, paddle: {:?}", layout.ball, layout.paddle);
-    while ball_current.1 + 1 != layout.paddle.1 {
-        // println!("ball curr wip {:?}", ball_current);
-        ball_current = (ball_current.0 + layout.ball_dir, ball_current.1 + 1);
+    let mut ball = layout.ball;
+    let mut x_rate = layout.ball_x_rate;
+    let mut y_rate = layout.ball_y_rate;
+
+    println!("ball initial: {:?}", ball);
+    println!("paddle current: {:?}", layout.paddle);
+    println!("x_rate: {:?}, y_rate: {:?}", x_rate, y_rate);
+
+
+    // making the first step outside the loop to cover the case when ball has just bumped off paddle
+    ball = (ball.0 + x_rate, ball.1 + y_rate);
+
+    while ball.1 + 1 != layout.paddle.1 {
+        println!("ball wip: {:?}", ball);
+        ball = (ball.0 + x_rate, ball.1 + y_rate);
+        println!("rates wip= x: {:?}, y: {:?}", x_rate, y_rate);
+        // TODO: walls also change direction!!!
+        if layout.grid[ball.1 as usize][ball.0 as usize] == 'Z' {
+            y_rate *= -1;
+            println!("Simulated bump over block, changing y direction to {:?}", y_rate);
+        }
     }
-    // println!("expected ball pos: {:?}", ball_current);
-    // println!("paddle pos: {:?}", layout.paddle);
+
     let shift: i64;
-    if ball_current.0 == layout.paddle.0 {
+    if ball.0 == layout.paddle.0 {
         shift = 0;
-    } else if ball_current.0 > layout.paddle.0 {
+    } else if ball.0 > layout.paddle.0 {
         shift = 1;
     } else {
         shift = -1
     }
+    println!("calculated shift: {:?}", shift);
     shift
 }
 
@@ -329,23 +333,28 @@ fn part2(data: &str) -> MyResult<()> {
     let mut program = Intcode::new(&data);
     let mut layout: Layout = Layout::new();
 
-    // let mut moves = vec![0,0,0,1,1,1,1,1,1,0,0,0,0];
-    // moves.reverse();
-    // for item in moves.iter() {
-    //     input.stream.push(*item);
-    // }
-
     input.stream.push(0);
-    // input.stream.push(0);
 
-    // println!("input: {:?}", input);
     let mut step: i64 = 0;
     while input.stream.len() > 0 {
         program.run(&mut input, &mut output);
         layout.update_layout(&mut output.stream);
-        print_layout(&layout);
 
         println!("---------------------------------------------------");
+        print_layout(&layout);
+        // TODO: walls also change direction!!!
+        if layout.ball == (layout.paddle.0, layout.paddle.1 - 1) {
+            // bump over paddle has occurred, changing ball directions
+            layout.ball_y_rate *= -1;
+            println!("Bump over paddle!");
+            println!("Changing y-rate to {:?}", layout.ball_y_rate);
+
+        } else if layout.grid[layout.ball.1 as usize -1][layout.ball.0 as usize] == 'Z' {
+            // TODO: probably ball can break a block when one tile to right or left
+            layout.ball_y_rate *= -1;
+            println!("Broken a block!");
+            println!("Changing y-rate to {:?}", layout.ball_y_rate);
+        }
 
         let joystick = calculate_shift(&layout);
         input.stream.push(joystick);
